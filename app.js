@@ -1,7 +1,22 @@
 
 // Displays grid if images
 //Example component used by our custom resultSelected function ( custom-functions.js )
+var request = function(endpoint,requestParams,callback){
+    
+   // JSONP(endpoint,requestParams,callback);
+    
+    
+  // JQuery
+  $.ajax({
+    url: endpoint,
+    data: requestParams,
+    dataType: 'jsonp',
+    success: function(data) {
+      callback(data);
+    }
+  });
 
+};
 var GridComponent = React.createClass({
    
     getInitialState: function(){
@@ -46,26 +61,26 @@ var customFunctions = {
 
         requestHandler: function(query, limit, callback){
 
-        var endpoint = 'https://api.instagram.com/v1/users/search';
+        var endpoint = 'https://api.instagram.com/v1/users/search?client_id=02d26cb819954ba7b5c3c072a885759f';
                 var requestParams = {
-                client_id : instagramClientId,
-                q: query,
-                count: limit
+                  client_id : this.instagramClientId,
+                  q: query,
+                  count: this.limit
                 };
                 var wrappedCallback = function(data){
+                    
+                // You must set an "image" and "name" key for each result
+                 var renamedData = data.data.map(function(result){
+                   result.image = result['profile_picture'];
+                   result.name = result['username'];
+                   return result;
+                 });
 
-                // You must set an image and "name" key for each result
+                callback(renamedData);
+               }
 
-                var renameData = data.data.map(function(result){
-                result.image = result['profile_picture'];
-                        result.name = result['username'];
-                        return result;
-                });
-                        callback(renameData);
-                }
-
-        request(endpoint, rquestedParams, wrappedCalleback);
-                },
+        request(endpoint, requestParams, wrappedCallback);
+},
         
         
         // customize this function to do something when a result is selected
@@ -142,7 +157,8 @@ var LoadingComponent = React.createClass({
     }
 });
 
-var ResultsComponent = React.createClass({
+
+var Result = React.createClass({
     getInitialState: function(){
         return {
             isHovered: false
@@ -153,13 +169,7 @@ var ResultsComponent = React.createClass({
         event.preventDefault();
         event.stopPropagation();
     },
-    shouldComponentUpdate: function(nextProps,nextState){
-        return(
-                this.props.data.id &&
-                (this.props.data.id != nextProps.data.id) ||
-                this.state.isHovered !== nextState.isHovered               
-                );
-    },
+    
     onMouseOver: function(){
         this.setState({isHovered:true})
     },
@@ -171,15 +181,42 @@ var ResultsComponent = React.createClass({
         if(this.state.isHovered)
             className += 'hovered';
         return (
-           <li className={className}      onClick={this.handleSelect} onMouseOver={this.onMouseOver} onMouseLeave={this.onMouseLeave} >
+           <li className={className} onClick={this.handleSelect} onMouseOver={this.onMouseOver} onMouseLeave={this.onMouseLeave} >
             {
                this.props.image && <img src={this.props.image} />
             }
-            <div> {this.props.children}</div>
+            <div> {this.props.children } </div>
             </li>
          );
     }    
 });
+
+var ResultsComponent = React.createClass({
+    render: function(){
+        
+        var resultNodes = this.props.data.map(function(result){
+            return (
+                <Result image={result.image} handleSelect={this.props.handleSelect} data={result} key={result.id}>
+                {result.name}
+                </Result>
+            );
+        }.bind(this));
+        
+        var resultsClass = 'results thumb-'+ this.props.thumbStyle;
+        
+        return (
+          <div className="resultsContainer" >
+          {
+              this.props.data.length > 0 &&
+              <ul className={resultsClass}>
+              {resultNodes}
+              </ul>
+            }
+          </div>
+        );
+    }   
+});
+
 var InstaSearchComponent = React.createClass({
     getInitialState: function(){
         return{
@@ -352,7 +389,7 @@ var InstaSearchComponent = React.createClass({
                     }
                 </div>
                 {
-                    this.state.ShowResults && 
+                   
                     <ResultsComponent
                         data={this.state.results}
                         resultsId={this.state.resultsId}
@@ -369,6 +406,10 @@ React.render(
   <InstaSearchComponent 
    placeholder="Search instagram users" 
    requestHandler={customFunctions.requestHandler}
+   selectedHandler={customFunctions.selectedHandler}
+   loadingIcon="images/loading.gif"
+   limit={6}
+   thumbStyle="circle"
    />,
   document.getElementById('app')
 );
